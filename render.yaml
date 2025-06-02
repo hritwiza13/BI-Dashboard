@@ -3,7 +3,7 @@ services:
     name: bi-dashboard
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run app.py
+    startCommand: gunicorn app:app
     envVars:
       - key: DATABASE_URL
         value: postgresql://bi_dashboard_user:Y4CJcOwpda7FBq1IvXxZViic8o52wS6h@dpg-d0um76re5dus739m2ang-a.oregon-postgres.render.com/bi_dashboard_bpft 
