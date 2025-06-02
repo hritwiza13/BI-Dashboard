@@ -292,4 +292,165 @@ function filterTable(searchTerm, filterType = 'all') {
 
         row.style.display = showRow ? '' : 'none';
     });
-} 
+}
+
+// Advanced filtering and drill-down
+function setupAdvancedFilters() {
+    const filterContainer = document.createElement('div');
+    filterContainer.className = 'advanced-filters';
+    filterContainer.innerHTML = `
+        <div class="filter-group">
+            <label>Sales Range:</label>
+            <input type="number" id="min-sales" placeholder="Min">
+            <input type="number" id="max-sales" placeholder="Max">
+        </div>
+        <div class="filter-group">
+            <label>Customer Range:</label>
+            <input type="number" id="min-customers" placeholder="Min">
+            <input type="number" id="max-customers" placeholder="Max">
+        </div>
+        <button id="apply-advanced-filters" class="btn">Apply Filters</button>
+    `;
+    document.querySelector('.filters').appendChild(filterContainer);
+
+    document.getElementById('apply-advanced-filters').addEventListener('click', applyAdvancedFilters);
+}
+
+function applyAdvancedFilters() {
+    const minSales = document.getElementById('min-sales').value;
+    const maxSales = document.getElementById('max-sales').value;
+    const minCustomers = document.getElementById('min-customers').value;
+    const maxCustomers = document.getElementById('max-customers').value;
+
+    let filteredData = [...currentData];
+
+    if (minSales) filteredData = filteredData.filter(row => row.sales >= minSales);
+    if (maxSales) filteredData = filteredData.filter(row => row.sales <= maxSales);
+    if (minCustomers) filteredData = filteredData.filter(row => row.customers >= minCustomers);
+    if (maxCustomers) filteredData = filteredData.filter(row => row.customers <= maxCustomers);
+
+    updateDashboard(filteredData);
+}
+
+// Date range presets
+function setupDatePresets() {
+    const presetContainer = document.createElement('div');
+    presetContainer.className = 'date-presets';
+    presetContainer.innerHTML = `
+        <button class="preset-btn" data-days="7">Last 7 Days</button>
+        <button class="preset-btn" data-days="30">Last 30 Days</button>
+        <button class="preset-btn" data-days="90">Last 90 Days</button>
+        <button class="preset-btn" data-days="365">Last Year</button>
+    `;
+    document.querySelector('.filters').appendChild(presetContainer);
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const days = parseInt(btn.dataset.days);
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - days);
+            
+            startDateInput.value = startDate.toISOString().split('T')[0];
+            endDateInput.value = endDate.toISOString().split('T')[0];
+            
+            fetchData(startDateInput.value, endDateInput.value).then(data => {
+                currentData = data;
+                updateDashboard(currentData);
+            });
+        });
+    });
+}
+
+// Enhanced chart types
+function createPieChart(data) {
+    const salesByDay = data.reduce((acc, row) => {
+        const day = row.date.toLocaleDateString('en-US', { weekday: 'long' });
+        acc[day] = (acc[day] || 0) + row.sales;
+        return acc;
+    }, {});
+
+    const pieTrace = {
+        values: Object.values(salesByDay),
+        labels: Object.keys(salesByDay),
+        type: 'pie',
+        name: 'Sales by Day'
+    };
+
+    Plotly.newPlot('sales-pie-chart', [pieTrace], {
+        margin: { t: 20, r: 20, b: 40, l: 40 },
+        title: 'Sales Distribution by Day'
+    });
+}
+
+// Enhanced data export
+function exportData(format) {
+    if (currentData.length === 0) {
+        alert('No data to export');
+        return;
+    }
+
+    switch (format) {
+        case 'csv':
+            exportToCSV();
+            break;
+        case 'json':
+            exportToJSON();
+            break;
+        case 'excel':
+            exportToExcel();
+            break;
+    }
+}
+
+function exportToJSON() {
+    const jsonData = JSON.stringify(currentData, null, 2);
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    downloadFile(blob, 'dashboard_export.json');
+}
+
+function exportToExcel() {
+    // Convert to CSV first (Excel can open CSV files)
+    const headers = ['Date', 'Sales', 'Customers', 'Conversion Rate'];
+    const csvData = currentData.map(row => [
+        row.date.toISOString().split('T')[0],
+        row.sales,
+        row.customers,
+        (row.conversion_rate * 100).toFixed(1) + '%'
+    ]);
+    
+    const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    downloadFile(blob, 'dashboard_export.xlsx');
+}
+
+function downloadFile(blob, filename) {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Initialize new features
+document.addEventListener('DOMContentLoaded', () => {
+    setupAdvancedFilters();
+    setupDatePresets();
+    
+    // Add export format buttons
+    const exportContainer = document.createElement('div');
+    exportContainer.className = 'export-options';
+    exportContainer.innerHTML = `
+        <button onclick="exportData('csv')" class="btn">Export CSV</button>
+        <button onclick="exportData('json')" class="btn">Export JSON</button>
+        <button onclick="exportData('excel')" class="btn">Export Excel</button>
+    `;
+    document.querySelector('.actions').appendChild(exportContainer);
+}); 
