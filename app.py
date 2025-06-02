@@ -1,9 +1,11 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
+from flask_cors import CORS
 from data_handler import fetch_sales_data
 from datetime import datetime, timedelta
 import os
 
 app = Flask(__name__, static_folder='frontend')
+CORS(app)  # Enable CORS for all routes
 
 @app.route('/')
 def index():
