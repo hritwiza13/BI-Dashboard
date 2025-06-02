@@ -1,47 +1,46 @@
+import os
 from sqlalchemy import create_engine, text
-import pandas as pd
-from datetime import datetime, timedelta
-import numpy as np
+from data_handler import get_db_connection
 
-# Create SQLite database
-DATABASE_URL = "sqlite:///./bi_dashboard.db"
-engine = create_engine(DATABASE_URL)
-
-# Create table
-create_table_query = text("""
-    CREATE TABLE IF NOT EXISTS sales_data (
-        date DATE PRIMARY KEY,
-        sales FLOAT,
-        customers INTEGER,
-        conversion_rate FLOAT
-    )
-""")
-
-# Generate sample data
-def generate_sample_data():
-    dates = pd.date_range(start='2024-01-01', end='2024-03-31', freq='D')
-    sales_data = pd.DataFrame({
-        'date': dates,
-        'sales': np.random.normal(1000, 200, len(dates)),
-        'customers': np.random.normal(50, 10, len(dates)).astype(int),
-        'conversion_rate': np.random.normal(0.15, 0.02, len(dates))
-    })
-    return sales_data
-
-# Insert data
-def insert_data():
+def setup_database():
     try:
+        engine = get_db_connection()
+        
+        # Create sales_data table if it doesn't exist
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS sales_data (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL,
+            sales DECIMAL(10,2) NOT NULL,
+            customers INTEGER NOT NULL,
+            conversion_rate DECIMAL(5,4) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        -- Create index on date column for better query performance
+        CREATE INDEX IF NOT EXISTS idx_sales_data_date ON sales_data(date);
+        
+        -- Add constraint to ensure unique dates
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint 
+                WHERE conname = 'sales_data_date_unique'
+            ) THEN
+                ALTER TABLE sales_data ADD CONSTRAINT sales_data_date_unique UNIQUE (date);
+            END IF;
+        END $$;
+        """
+        
         with engine.connect() as connection:
-            # Create table
-            connection.execute(create_table_query)
+            connection.execute(text(create_table_query))
             connection.commit()
-
-            # Generate and insert sample data
-            data = generate_sample_data()
-            data.to_sql('sales_data', engine, if_exists='replace', index=False)
-            print("Database setup completed successfully!")
+            
+        print("Database setup completed successfully!")
+        
     except Exception as e:
-        print(f"Error setting up database: {e}")
+        print(f"Error setting up database: {str(e)}")
+        raise
 
 if __name__ == "__main__":
-    insert_data() 
+    setup_database() 

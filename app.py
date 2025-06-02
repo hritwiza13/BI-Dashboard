@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+from data_handler import fetch_sales_data
 
 # Page configuration
 st.set_page_config(
@@ -37,19 +38,23 @@ date_range = st.sidebar.date_input(
     value=(datetime.now() - timedelta(days=30), datetime.now())
 )
 
-# Sample data generation (replace with your actual data source)
-def generate_sample_data():
-    dates = pd.date_range(start=date_range[0], end=date_range[1], freq='D')
-    sales_data = pd.DataFrame({
-        'date': dates,
-        'sales': np.random.normal(1000, 200, len(dates)),
-        'customers': np.random.normal(50, 10, len(dates)),
-        'conversion_rate': np.random.normal(0.15, 0.02, len(dates))
-    })
-    return sales_data
+# Load data from database
+try:
+    data = fetch_sales_data(date_range[0], date_range[1])
+    if data.empty:
+        st.warning("No data found for the selected date range. Please try a different range.")
+        st.stop()
+except Exception as e:
+    st.error(f"Error loading data: {str(e)}")
+    st.stop()
 
-# Load data
-data = generate_sample_data()
+# Function to convert DataFrame to CSV
+@st.cache_data
+def convert_df_to_csv(df):
+    # IMPORTANT: Cache the conversion to prevent computation on every rerun
+    return df.to_csv(index=False).encode('utf-8')
+
+csv_data = convert_df_to_csv(data)
 
 # KPI Cards
 col1, col2, col3, col4 = st.columns(4)
@@ -81,6 +86,15 @@ with col4:
         f"${(data['sales'].sum() / data['customers'].sum()):,.2f}",
         f"{((data['sales'].iloc[-1] / data['customers'].iloc[-1]) - (data['sales'].iloc[0] / data['customers'].iloc[0])) / (data['sales'].iloc[0] / data['customers'].iloc[0]) * 100:.1f}%"
     )
+
+# Export button
+st.download_button(
+    label="Export Report",
+    data=csv_data,
+    file_name='sales_data_report.csv',
+    mime='text/csv',
+    help="Download the current data as a CSV file"
+)
 
 # Charts
 st.markdown("### Sales Analytics")

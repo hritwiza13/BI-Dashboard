@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 import random
 
@@ -19,7 +19,7 @@ def get_db_connection():
         engine = create_engine(database_url)
         # Test the connection
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return engine
     except Exception as e:
         print(f"Error connecting to database: {str(e)}")
@@ -30,14 +30,14 @@ def fetch_sales_data(start_date, end_date):
         engine = get_db_connection()
         
         # Try to fetch from database first
-        query = f"""
+        query = text("""
         SELECT date, sales, customers, conversion_rate
         FROM sales_data
-        WHERE date BETWEEN '{start_date}' AND '{end_date}'
+        WHERE date BETWEEN :start_date AND :end_date
         ORDER BY date;
-        """
+        """)
         
-        df = pd.read_sql(query, engine)
+        df = pd.read_sql(query, engine, params={'start_date': start_date, 'end_date': end_date})
         
         # If no data in database, generate sample data
         if df.empty:
